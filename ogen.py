@@ -78,7 +78,8 @@ def teken_oog(img, cx, cy, a, kant, st):
     s = (X - cx) / a * -kant      # -1..1 over het oog, +1 = binnenhoek (bij de neus)
     v = (Y - cy) / a              # verticaal, negatief = omhoog
     stuk = img[y0:y1, x0:x1]
-    gx, gy = st["kijk_x"], st["kijk_y"]
+    gx = st["kijk_x"] + st["los"][kant][0]       # "los": een oog dat even zijn eigen kant op rolt
+    gy = st["kijk_y"] + st["los"][kant][1]
     binnen_kl, midden_kl, buiten_kl, pupil_kl, gloed_kl = (kl(*c) for c in IRIS_KLEUREN[st["kleur"]])
 
     # Vorm van de oogleden (amandelvorm)
@@ -200,6 +201,46 @@ def teken_frame(Wp, Hp, st):
     if schaal < 1:
         img = cv2.resize(img, (Wp, Hp), interpolation=cv2.INTER_LINEAR)
     return img
+
+
+# --- Enge extra's: tekst in beeld en glitches ---
+ZINNEN = {
+    "terug":    ["DAAR BEN JE", "IK HEB JE GEMIST", "WAAR WAS JE?"],
+    "weg":      ["KOM TERUG", "IK WEET WAAR JE BENT", "JE KUNT NIET VLUCHTEN"],
+    "dichtbij": ["TE DICHTBIJ", "DICHTER...", "IK RUIK JE"],
+    "staren":   ["IK ZIE JE", "KIJK NIET WEG", "ACHTER JE", "WIE STAAT ER NAAST JE?", "KNIPPER NIET"],
+    "wachten":  ["IK WACHT", "IK BEN NOG HIER", "LAAT ME ERUIT"],
+}
+
+
+def tekst_op_beeld(img, tekst, sterkte):
+    """Zet grote, rode, trillende tekst onderaan het beeld (onder de ogen)."""
+    H, W = img.shape[:2]
+    font = cv2.FONT_HERSHEY_TRIPLEX
+    (tw, th), _ = cv2.getTextSize(tekst, font, 1.0, 1)
+    schaal = min(W * 0.7 / tw, H * 0.09 / th)
+    dikte = max(1, round(schaal * 1.2))
+    (tw, th), _ = cv2.getTextSize(tekst, font, schaal, dikte)
+    x = int((W - tw) / 2 + random.uniform(-1, 1) * W * 0.004)
+    y = int(H * 0.965 + random.uniform(-1, 1) * H * 0.004)
+    laag = np.zeros(img.shape[:2], np.uint8)
+    cv2.putText(laag, tekst, (x, y), font, schaal, 255, dikte, cv2.LINE_AA)
+    m = (laag.astype(np.float32) / 255 * sterkte)[..., None]
+    img[:] = (img * (1 - m) + np.array([175, 0, 5], np.float32) * m).astype(np.uint8)
+
+
+def glitch(img, kracht):
+    """Verschuift stroken van het beeld en trekt de kleuren uit elkaar, zoals een kapotte tv."""
+    H, W = img.shape[:2]
+    for _ in range(int(2 + kracht * 8)):
+        y0 = random.randrange(H)
+        y1 = min(H, y0 + random.randint(1, max(2, H // 8)))
+        img[y0:y1] = np.roll(img[y0:y1], int(random.uniform(-1, 1) * W * 0.08 * kracht), axis=1)
+    verschuif = int(W * 0.012 * kracht) + 1
+    img[..., 0] = np.roll(img[..., 0], verschuif, axis=1)      # rood naar rechts
+    img[..., 2] = np.roll(img[..., 2], -verschuif, axis=1)     # blauw naar links
+    if random.random() < 0.15 * kracht:
+        img[:] = 255 - img                                     # heel even negatief beeld
 
 
 # --- Beeld omzetten naar tekst met kleurcodes ---
@@ -349,7 +390,7 @@ def main():
     out.write(b"\x1b[?1049h\x1b[?25l\x1b[2J")       # apart scherm, cursor verbergen
 
     st = {"kijk_x": 0.0, "kijk_y": 0.0, "open": 1.0, "spleet": 0.15, "gloei": 1.0,
-          "licht": 1.0, "traan": [0.0, 0.0], "kleur": kleur}
+          "licht": 1.0, "traan": [0.0, 0.0], "kleur": kleur, "los": {-1: [0.0, 0.0], 1: [0.0, 0.0]}}
     doel_x = doel_y = 0.0
     basis_open = 0.6
     knipper_start, volgende_knipper = -1.0, time.time() + random.uniform(4, 8)
@@ -358,6 +399,17 @@ def main():
     zoek_doel = (0.0, 0.0); volgende_blik = 0.0
     vorige, grootte = None, None
     start = laatst = time.time()
+    zin, zin_start, zin_duur = None, 0.0, 0.0          # enge tekst die nu in beeld staat
+    volgende_zin = start + random.uniform(10, 20)
+    glitch_tot, volgende_glitch = 0.0, start + random.uniform(8, 15)
+    los_kant, los_tot, volgende_los = -1, 0.0, start + random.uniform(15, 30)
+    los_doel = (0.0, 0.0)
+    was_gezien = was_dichtbij = False
+    weg_sinds = start
+
+    def zeg(soort, duur=2.5):
+        nonlocal zin, zin_start, zin_duur
+        zin, zin_start, zin_duur = random.choice(ZINNEN[soort]), time.time(), duur
 
     try:
         while True:
@@ -428,6 +480,36 @@ def main():
                 volgende_flikker = nu + random.uniform(0.8, 2.5) if dichtbij else nu + random.uniform(3, 9)
             st["licht"] = random.choice([0.15, 0.4, 1.0]) if nu < flikker_tot else 1.0
 
+            # --- Gebeurtenissen: tekst, glitches en een oog dat wegrolt ---
+            if gezien and not was_gezien:
+                if nu - weg_sinds > 4:
+                    zeg("terug")
+                    glitch_tot = nu + 0.25
+            elif was_gezien and not gezien:
+                zeg("weg", 3.0)
+                weg_sinds = nu
+            if dichtbij and not was_dichtbij:                # jumpscare
+                zeg("dichtbij", 2.0)
+                glitch_tot = nu + 0.7
+                flikker_tot = nu + 0.6
+            was_gezien, was_dichtbij = gezien, dichtbij
+            if nu > volgende_zin:
+                if zin is None or nu - zin_start > zin_duur:
+                    zeg("staren" if gezien else "wachten", 3.0)
+                volgende_zin = nu + random.uniform(12, 25)
+            if nu > volgende_glitch:
+                glitch_tot = nu + random.uniform(0.08, 0.25)
+                volgende_glitch = nu + (random.uniform(1.5, 4) if dichtbij else random.uniform(6, 15))
+            if nu > volgende_los and gezien:
+                los_kant, los_tot = random.choice([-1, 1]), nu + random.uniform(1.0, 2.0)
+                hoek = random.uniform(0, 2 * math.pi)
+                los_doel = (math.cos(hoek) * 0.9, math.sin(hoek) * 0.5)
+                volgende_los = nu + random.uniform(15, 30)
+            for kant in (-1, 1):
+                doel = los_doel if (kant == los_kant and nu < los_tot) else (0.0, 0.0)
+                for i in (0, 1):
+                    st["los"][kant][i] += (doel[i] - st["los"][kant][i]) * glad(10)
+
             # --- Tekenen ---
             cols, rows = shutil.get_terminal_size()
             rows -= 1                                         # laatste regel voor de status
@@ -442,6 +524,17 @@ def main():
             st["gloei"] = st["gloei_nu"]
             img = teken_frame(cols, rows * 2, st)
             st["gloei"] = gloei_basis
+            if zin is not None:
+                leeftijd = nu - zin_start
+                if leeftijd > zin_duur:
+                    zin = None
+                else:
+                    sterkte = float(ss(0, 0.3, leeftijd) * (1 - ss(zin_duur - 0.6, zin_duur, leeftijd)))
+                    if random.random() < 0.08:
+                        sterkte *= 0.2                        # tekst hapert af en toe
+                    tekst_op_beeld(img, zin, sterkte)
+            if nu < glitch_tot:
+                glitch(img, 1.0 if dichtbij else 0.5)
             tekst, vorige = naar_ansi(img, vorige)
 
             # Statusregel: handig om te zien of het aan de camera of aan de detectie ligt
