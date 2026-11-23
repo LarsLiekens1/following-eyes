@@ -6,6 +6,7 @@ cd /d "%~dp0"
     --name FollowingEyes ^
     --add-data "model;model" ^
     --hidden-import schermen ^
+    --hidden-import geluid ^
     --exclude-module matplotlib ^
     ogen.py
 echo.

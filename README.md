@@ -35,7 +35,7 @@ python ogen.py          # red eyes
 python ogen.py yellow   # or: red, yellow, white
 ```
 
-Stop with `Ctrl+C` or `Esc`. More detail: zoom out with `Ctrl` + `-`.
+Stop with `Ctrl+C` or `Esc`. Toggle sound with `M`. More detail: zoom out with `Ctrl` + `-`.
 
 ## Build the .exe
 
@@ -48,6 +48,7 @@ Double-click **`build.bat`**. The result is `dist\FollowingEyes.exe` (one file, 
 3. **Gaze direction:** the center of your face becomes a number between -1 and 1.
 4. **Drawing:** skin, eyelids, sclera, iris and pupil are calculated with math for every pixel.
 5. **Terminal:** each `▀` character is 2 pixels (foreground and background color). Only what changes is redrawn.
+6. **Sound:** a heartbeat (faster when you're close), a jumpscare screech, whispers and a low drone, all synthesized live with NumPy via `winsound` — no audio files.
 
 ## Multiple monitors
 
@@ -68,6 +69,7 @@ At the top of `ogen.py`:
 | `VERSTERKING`     | how far the eyes turn                                |
 | `DICHTBIJ`        | face size at which you are "too close"               |
 | `ANDERE_SCHERMEN` | black out the other monitors                         |
+| `GELUID`          | creepy sounds (heartbeat, screech, whispers, drone)  |
 
 ## Troubleshooting
 

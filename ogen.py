@@ -186,6 +186,7 @@ VASTHOUDEN = 2.5    # seconden dat de ogen blijven kijken waar je het laatst was
 VERSTERKING = 1.6   # hoe ver de ogen draaien: hoger = sneller naar de rand
 DICHTBIJ = 0.32     # gezicht breder dan dit deel van het beeld = "te dichtbij"
 ANDERE_SCHERMEN = True   # meerdere schermen? dan worden de andere zwart, met ogen in het donker
+GELUID = True            # enge geluiden (hartslag, gil, gefluister, bromtoon)
 
 A_MAX = 34   # grootste oog (halve breedte in pixels) dat we op volle resolutie tekenen
 
@@ -441,6 +442,8 @@ def controle():
     tekst_op_beeld(img, "I SEE YOU", 1.0)
     naar_ansi(img, None)
     import tkinter
+    import geluid as g
+    g.Geluid(aan=False)
     print("check ok:", cv2.__version__, img.shape)
 
 
@@ -463,6 +466,8 @@ def main():
                  "- Windows Settings > Privacy > Camera: is camera access for apps turned on?")
     cam.start()
     schermen = AndereSchermen(terminal_hwnd)
+    import geluid as geluidmodule
+    geluid = geluidmodule.Geluid(GELUID)
 
     os.system("")                                   # ANSI-codes aanzetten op Windows
     out = sys.stdout.buffer
@@ -490,6 +495,7 @@ def main():
         nonlocal zin, zin_start, zin_duur
         zin, zin_start, zin_duur = random.choice(ZINNEN[soort]), time.time(), duur
         schermen.zend("zin " + zin)
+        geluid.fluister()
 
     try:
         while True:
@@ -500,8 +506,11 @@ def main():
             if os.name == "nt":                               # Esc = stoppen
                 import msvcrt
                 while msvcrt.kbhit():
-                    if msvcrt.getwch() == "\x1b":
+                    toets = msvcrt.getwch()
+                    if toets == "\x1b":
                         raise KeyboardInterrupt
+                    if toets in ("m", "M"):
+                        geluid.aan = not geluid.aan
 
             # --- Waar kijken we naar? ---
             g = cam.gezicht
@@ -564,6 +573,7 @@ def main():
                 flikker_tot = nu + random.uniform(0.1, 0.5)
                 volgende_flikker = nu + random.uniform(0.8, 2.5) if dichtbij else nu + random.uniform(3, 9)
             st["licht"] = random.choice([0.15, 0.4, 1.0]) if nu < flikker_tot else 1.0
+            geluid.tick(nu, gezien, dichtbij)
 
             # --- Gebeurtenissen: tekst, glitches en een oog dat wegrolt ---
             if gezien and not was_gezien:
@@ -577,6 +587,7 @@ def main():
                 zeg("dichtbij", 2.0)
                 glitch_tot = nu + 0.7
                 flikker_tot = nu + 0.6
+                geluid.gil()
             if (gezien, dichtbij) != (was_gezien, was_dichtbij):
                 schermen.zend("staat " + ("dichtbij" if dichtbij else "gezien" if gezien else "weg"))
             was_gezien, was_dichtbij = gezien, dichtbij
@@ -644,6 +655,10 @@ def main():
         pass                                                  # Ctrl+C = netjes stoppen
     finally:
         cam.actief = False
+        try:
+            geluid.stop()
+        except NameError:
+            pass
         schermen.stop()
         time.sleep(0.1)
         cam.cam.release()
