@@ -10,10 +10,11 @@ Everything is calculated live with NumPy and drawn with colored characters (`▀
 
 ## Just want to run it?
 
-Download **`FollowingEyes.exe`** from the [Releases](../../releases) page and double-click it.
-It takes a few seconds to start, then goes fullscreen by itself. Press `Esc` to quit.
+Download **[`install.bat`](../../raw/main/install.bat)** and double-click it. It downloads everything,
+sets it up and starts automatically. Press `Esc` to quit. (Needs an internet connection the first time.)
 
-Windows may show *"Windows protected your PC"* because the file is not signed: click **More info → Run anyway**.
+Or grab the single **`FollowingEyes.exe`** from the [Releases](../../releases) page. Windows may show
+*"Windows protected your PC"* for the exe because it is not signed: click **More info → Run anyway**.
 
 ## Install (for developers)
 
