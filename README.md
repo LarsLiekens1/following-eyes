@@ -8,7 +8,14 @@ Everything is calculated live with NumPy and drawn with colored characters (`▀
 
 > The webcam image is only used to find your face. Nothing is recorded, saved or sent anywhere.
 
-## Install
+## Just want to run it?
+
+Download **`FollowingEyes.exe`** from the [Releases](../../releases) page and double-click it.
+It takes a few seconds to start, then goes fullscreen by itself. Press `Esc` to quit.
+
+Windows may show *"Windows protected your PC"* because the file is not signed: click **More info → Run anyway**.
+
+## Install (for developers)
 
 ```
 python -m venv .venv
@@ -28,6 +35,10 @@ python ogen.py yellow   # or: red, yellow, white
 ```
 
 Stop with `Ctrl+C` or `Esc`. More detail: zoom out with `Ctrl` + `-`.
+
+## Build the .exe
+
+Double-click **`build.bat`**. The result is `dist\FollowingEyes.exe` (one file, about 60 MB, includes Python and everything else).
 
 ## How it works
 

@@ -184,13 +184,16 @@ class App:
         self.root.after(40, self.stap)                        # ~25 beelden per seconde
 
 
-if __name__ == "__main__":
+def start(hwnd):
     try:
         ctypes.windll.shcore.SetProcessDpiAwareness(2)        # echte pixels, ook bij 125%/150% schaal
     except Exception:
         pass
-    hwnd = int(sys.argv[1]) if len(sys.argv) > 1 else 0
     try:
         App(hwnd).root.mainloop()
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == "__main__":
+    start(int(sys.argv[1]) if len(sys.argv) > 1 else 0)

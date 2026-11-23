@@ -11,7 +11,8 @@ import numpy as np              # snel rekenen met grids
 import shutil, time, random, sys, os, threading, math, subprocess
 from collections import deque
 
-MAP = os.path.dirname(os.path.abspath(__file__))
+EXE = getattr(sys, "frozen", False)                # True als we als .exe draaien (PyInstaller)
+MAP = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
 YUNET = os.path.join(MAP, "model", "face_detection_yunet_2023mar.onnx")
 
 # --- Kleuren (RGB tussen 0 en 1) ---
@@ -301,7 +302,9 @@ class AndereSchermen:
             return
         try:
             self.proces = subprocess.Popen(
-                [sys.executable, os.path.join(MAP, "schermen.py"), str(terminal_hwnd)],
+                # als .exe start de exe zichzelf nog eens, in "schermen"-modus
+                ([sys.executable, "--screens"] if EXE else [sys.executable, os.path.join(MAP, "schermen.py")])
+                + [str(terminal_hwnd)],
                 stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
         except OSError:
             self.proces = None
@@ -407,6 +410,40 @@ def ctypes_hwnd():
     return ctypes.windll.user32.GetForegroundWindow() or 0
 
 
+def volledig_scherm(hwnd):
+    """Zet het terminalvenster op volledig scherm door Alt+Enter te 'drukken'.
+    Alleen als het venster vooraan echt een terminal is (Windows Terminal of cmd)."""
+    import ctypes
+    u = ctypes.windll.user32
+    naam = ctypes.create_unicode_buffer(256)
+    u.GetClassNameW(hwnd, naam, 256)
+    if naam.value not in ("CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass"):
+        return
+    os.system("title Following Eyes")
+    ALT, ENTER, CTRL, MIN, LOS = 0x12, 0x0D, 0x11, 0xBD, 0x0002
+    u.keybd_event(ALT, 0, 0, 0); u.keybd_event(ENTER, 0, 0, 0)
+    u.keybd_event(ENTER, 0, LOS, 0); u.keybd_event(ALT, 0, LOS, 0)
+    if naam.value == "CASCADIA_HOSTING_WINDOW_CLASS":      # Windows Terminal: wat uitzoomen voor meer detail
+        time.sleep(0.3)
+        for _ in range(2):
+            u.keybd_event(CTRL, 0, 0, 0); u.keybd_event(MIN, 0, 0, 0)
+            u.keybd_event(MIN, 0, LOS, 0); u.keybd_event(CTRL, 0, LOS, 0)
+    time.sleep(0.4)
+
+
+def controle():
+    """python ogen.py --check: test of alles geladen kan worden, zonder webcam."""
+    assert os.path.exists(YUNET), "model ontbreekt"
+    cv2.FaceDetectorYN.create(YUNET, "", (416, 234), 0.5, 0.3, 5000)
+    st = {"kijk_x": 0.2, "kijk_y": 0.0, "open": 1.0, "spleet": 0.15, "gloei": 1.0, "licht": 1.0,
+          "traan": [0.5, 0.5], "kleur": "red", "los": {-1: [0.0, 0.0], 1: [0.0, 0.0]}}
+    img = teken_frame(120, 60, st)
+    tekst_op_beeld(img, "I SEE YOU", 1.0)
+    naar_ansi(img, None)
+    import tkinter
+    print("check ok:", cv2.__version__, img.shape)
+
+
 def main():
     kleur = sys.argv[1] if len(sys.argv) > 1 else "red"
     if kleur not in IRIS_KLEUREN:
@@ -416,6 +453,8 @@ def main():
 
     # Het venster dat nu vooraan staat is de terminal: zo weten we op welk scherm de ogen staan
     terminal_hwnd = ctypes_hwnd() if os.name == "nt" else 0
+    if EXE and terminal_hwnd:
+        volledig_scherm(terminal_hwnd)
     cam = Camera()
     if cam.cam is None:
         sys.exit("The webcam is not giving any image.\n"
@@ -613,4 +652,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--screens":      # de exe start zichzelf zo voor de andere schermen
+        import schermen
+        schermen.start(int(sys.argv[2]) if len(sys.argv) > 2 else 0)
+    elif len(sys.argv) > 1 and sys.argv[1] == "--check":
+        controle()
+    else:
+        main()
