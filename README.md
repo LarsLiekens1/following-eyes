@@ -48,3 +48,12 @@ Bovenaan `ogen.py`:
 
 - **"De webcam geeft geen beeld"**: draait `ogen.py` nog in een ander venster, of gebruikt een ander programma de camera?
 - **`cv2` heeft geen `CascadeClassifier`**: je gebruikt OpenCV 5. Activeer de `.venv` of doe `pip install "opencv-python<5"`.
+
+## Meerdere schermen
+
+Heb je meer dan één scherm, dan worden de andere schermen zwart (`schermen.py` start vanzelf).
+In het donker duiken gloeiende ogen op die naar het hoofdscherm kijken, en ook daar verschijnen de enge teksten.
+Ga je weg, dan zijn er overal ogen. Kom je te dichtbij, dan flitst alles rood.
+
+- Sluiten: `Esc` op een zwart scherm, of stop `ogen.py`.
+- Uitzetten: zet `ANDERE_SCHERMEN = False` bovenaan `ogen.py`.

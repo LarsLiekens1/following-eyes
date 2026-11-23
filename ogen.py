@@ -8,7 +8,7 @@
 
 import cv2                      # webcam + gezichtsherkenning
 import numpy as np              # snel rekenen met grids
-import shutil, time, random, sys, os, threading, math
+import shutil, time, random, sys, os, threading, math, subprocess
 from collections import deque
 
 MAP = os.path.dirname(os.path.abspath(__file__))
@@ -184,6 +184,7 @@ def teken_oog(img, cx, cy, a, kant, st):
 VASTHOUDEN = 2.5    # seconden dat de ogen blijven kijken waar je het laatst was
 VERSTERKING = 1.6   # hoe ver de ogen draaien: hoger = sneller naar de rand
 DICHTBIJ = 0.32     # gezicht breder dan dit deel van het beeld = "te dichtbij"
+ANDERE_SCHERMEN = True   # meerdere schermen? dan worden de andere zwart, met ogen in het donker
 
 A_MAX = 34   # grootste oog (halve breedte in pixels) dat we op volle resolutie tekenen
 
@@ -292,6 +293,37 @@ def naar_ansi(img, vorige):
 
 
 # --- Webcam in een aparte thread, zodat het tekenen nooit op de camera moet wachten ---
+# --- De andere schermen (schermen.py draait als apart programma) ---
+class AndereSchermen:
+    def __init__(self, terminal_hwnd):
+        self.proces = None
+        if not (ANDERE_SCHERMEN and os.name == "nt"):
+            return
+        try:
+            self.proces = subprocess.Popen(
+                [sys.executable, os.path.join(MAP, "schermen.py"), str(terminal_hwnd)],
+                stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+        except OSError:
+            self.proces = None
+
+    def zend(self, bericht):
+        """Stuurt een bericht naar schermen.py, bv. "zin IK ZIE JE" of "staat weg"."""
+        if self.proces and self.proces.poll() is None:
+            try:
+                self.proces.stdin.write(bericht + "\n")
+                self.proces.stdin.flush()
+            except OSError:
+                self.proces = None
+
+    def stop(self):
+        if self.proces:
+            try:
+                self.proces.stdin.close()                # schermen.py ziet "einde" en sluit
+                self.proces.wait(timeout=2)
+            except Exception:
+                self.proces.kill()
+
+
 class Camera(threading.Thread):
     def __init__(self):
         super().__init__(daemon=True)
@@ -370,6 +402,11 @@ class Camera(threading.Thread):
         return (len(t) - 1) / (t[-1] - t[0]) if len(t) > 1 and t[-1] > t[0] else 0.0
 
 
+def ctypes_hwnd():
+    import ctypes
+    return ctypes.windll.user32.GetForegroundWindow() or 0
+
+
 def main():
     kleur = sys.argv[1] if len(sys.argv) > 1 else "rood"
     if kleur not in IRIS_KLEUREN:
@@ -377,6 +414,8 @@ def main():
     if not hasattr(cv2, "CascadeClassifier"):
         sys.exit("Je gebruikt OpenCV 5. Activeer eerst de .venv of doe: pip install \"opencv-python<5\"")
 
+    # Het venster dat nu vooraan staat is de terminal: zo weten we op welk scherm de ogen staan
+    terminal_hwnd = ctypes_hwnd() if os.name == "nt" else 0
     cam = Camera()
     if cam.cam is None:
         sys.exit("De webcam geeft geen beeld.\n"
@@ -384,6 +423,7 @@ def main():
                  "- Gebruikt een ander programma de camera (Discord, Teams, Camera-app)?\n"
                  "- Windows Instellingen > Privacy > Camera: staat toegang voor apps aan?")
     cam.start()
+    schermen = AndereSchermen(terminal_hwnd)
 
     os.system("")                                   # ANSI-codes aanzetten op Windows
     out = sys.stdout.buffer
@@ -410,6 +450,7 @@ def main():
     def zeg(soort, duur=2.5):
         nonlocal zin, zin_start, zin_duur
         zin, zin_start, zin_duur = random.choice(ZINNEN[soort]), time.time(), duur
+        schermen.zend("zin " + zin)
 
     try:
         while True:
@@ -492,6 +533,8 @@ def main():
                 zeg("dichtbij", 2.0)
                 glitch_tot = nu + 0.7
                 flikker_tot = nu + 0.6
+            if (gezien, dichtbij) != (was_gezien, was_dichtbij):
+                schermen.zend("staat " + ("dichtbij" if dichtbij else "gezien" if gezien else "weg"))
             was_gezien, was_dichtbij = gezien, dichtbij
             if nu > volgende_zin:
                 if zin is None or nu - zin_start > zin_duur:
@@ -499,6 +542,7 @@ def main():
                 volgende_zin = nu + random.uniform(12, 25)
             if nu > volgende_glitch:
                 glitch_tot = nu + random.uniform(0.08, 0.25)
+                schermen.zend("glitch")
                 volgende_glitch = nu + (random.uniform(1.5, 4) if dichtbij else random.uniform(6, 15))
             if nu > volgende_los and gezien:
                 los_kant, los_tot = random.choice([-1, 1]), nu + random.uniform(1.0, 2.0)
@@ -556,6 +600,7 @@ def main():
         pass                                                  # Ctrl+C = netjes stoppen
     finally:
         cam.actief = False
+        schermen.stop()
         time.sleep(0.1)
         cam.cam.release()
         out.write(b"\x1b[0m\x1b[?25h\x1b[?1049l")            # cursor en gewone scherm terug
