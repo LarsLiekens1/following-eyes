@@ -1,7 +1,7 @@
 # ogen.py - twee enge ogen in de terminal die je via de webcam volgen
 # Installeren: pip install -r requirements.txt
 # Starten:     python ogen.py            (stoppen met Ctrl+C)
-#              python ogen.py geel       (irisKleur: rood, geel, wit)
+#              python ogen.py yellow     (irisKleur: red, yellow, white)
 #
 # Truc: elk teken is het halve blokje "▀". De bovenkant krijgt de voorgrondkleur,
 # de onderkant de achtergrondkleur. Zo is elk teken 2 vierkante pixels.
@@ -28,9 +28,9 @@ ROOD_RAND   = kl(0.75, 0.22, 0.18)    # rauwe, rode ooglidrand
 BLOED       = kl(0.38, 0.0, 0.02)
 
 IRIS_KLEUREN = {   # (bij de pupil, midden, buitenrand, pupil, gloed)
-    "rood": ([1.0, 0.85, 0.30], [0.90, 0.12, 0.04], [0.30, 0.01, 0.01], [0.01, 0.0, 0.0], [1.0, 0.10, 0.04]),
-    "geel": ([1.0, 0.95, 0.55], [0.92, 0.62, 0.05], [0.35, 0.16, 0.0], [0.01, 0.01, 0.0], [1.0, 0.65, 0.08]),
-    "wit":  ([0.88, 0.90, 0.92], [0.72, 0.76, 0.80], [0.45, 0.50, 0.55], [0.55, 0.58, 0.62], [0.55, 0.75, 1.0]),
+    "red":    ([1.0, 0.85, 0.30], [0.90, 0.12, 0.04], [0.30, 0.01, 0.01], [0.01, 0.0, 0.0], [1.0, 0.10, 0.04]),
+    "yellow": ([1.0, 0.95, 0.55], [0.92, 0.62, 0.05], [0.35, 0.16, 0.0], [0.01, 0.01, 0.0], [1.0, 0.65, 0.08]),
+    "white":  ([0.88, 0.90, 0.92], [0.72, 0.76, 0.80], [0.45, 0.50, 0.55], [0.55, 0.58, 0.62], [0.55, 0.75, 1.0]),
 }
 
 
@@ -206,11 +206,11 @@ def teken_frame(Wp, Hp, st):
 
 # --- Enge extra's: tekst in beeld en glitches ---
 ZINNEN = {
-    "terug":    ["DAAR BEN JE", "IK HEB JE GEMIST", "WAAR WAS JE?"],
-    "weg":      ["KOM TERUG", "IK WEET WAAR JE BENT", "JE KUNT NIET VLUCHTEN"],
-    "dichtbij": ["TE DICHTBIJ", "DICHTER...", "IK RUIK JE"],
-    "staren":   ["IK ZIE JE", "KIJK NIET WEG", "ACHTER JE", "WIE STAAT ER NAAST JE?", "KNIPPER NIET"],
-    "wachten":  ["IK WACHT", "IK BEN NOG HIER", "LAAT ME ERUIT"],
+    "terug":    ["THERE YOU ARE", "I MISSED YOU", "WHERE WERE YOU?"],
+    "weg":      ["COME BACK", "I KNOW WHERE YOU ARE", "YOU CAN'T HIDE"],
+    "dichtbij": ["TOO CLOSE", "CLOSER...", "I CAN SMELL YOU"],
+    "staren":   ["I SEE YOU", "DON'T LOOK AWAY", "BEHIND YOU", "WHO IS NEXT TO YOU?", "DON'T BLINK"],
+    "wachten":  ["I'M WAITING", "I'M STILL HERE", "LET ME OUT"],
 }
 
 
@@ -408,20 +408,20 @@ def ctypes_hwnd():
 
 
 def main():
-    kleur = sys.argv[1] if len(sys.argv) > 1 else "rood"
+    kleur = sys.argv[1] if len(sys.argv) > 1 else "red"
     if kleur not in IRIS_KLEUREN:
-        sys.exit(f"Onbekende kleur '{kleur}'. Kies uit: {', '.join(IRIS_KLEUREN)}")
+        sys.exit(f"Unknown color '{kleur}'. Choose from: {', '.join(IRIS_KLEUREN)}")
     if not hasattr(cv2, "CascadeClassifier"):
-        sys.exit("Je gebruikt OpenCV 5. Activeer eerst de .venv of doe: pip install \"opencv-python<5\"")
+        sys.exit("You are using OpenCV 5. Activate the .venv first, or run: pip install \"opencv-python<5\"")
 
     # Het venster dat nu vooraan staat is de terminal: zo weten we op welk scherm de ogen staan
     terminal_hwnd = ctypes_hwnd() if os.name == "nt" else 0
     cam = Camera()
     if cam.cam is None:
-        sys.exit("De webcam geeft geen beeld.\n"
-                 "- Draait ogen.py misschien nog in een ander venster? Sluit dat eerst.\n"
-                 "- Gebruikt een ander programma de camera (Discord, Teams, Camera-app)?\n"
-                 "- Windows Instellingen > Privacy > Camera: staat toegang voor apps aan?")
+        sys.exit("The webcam is not giving any image.\n"
+                 "- Is this program maybe still running in another window? Close it first.\n"
+                 "- Is another app using the camera (Discord, Teams, Camera app)?\n"
+                 "- Windows Settings > Privacy > Camera: is camera access for apps turned on?")
     cam.start()
     schermen = AndereSchermen(terminal_hwnd)
 
@@ -458,6 +458,11 @@ def main():
             dt = min(nu - laatst, 0.1)
             laatst = nu
             glad = lambda snelheid: 1 - math.exp(-dt * snelheid)   # vloeiend bewegen, los van de fps
+            if os.name == "nt":                               # Esc = stoppen
+                import msvcrt
+                while msvcrt.kbhit():
+                    if msvcrt.getwch() == "\x1b":
+                        raise KeyboardInterrupt
 
             # --- Waar kijken we naar? ---
             g = cam.gezicht
@@ -561,7 +566,7 @@ def main():
                 grootte, vorige = (cols, rows), None
                 out.write(b"\x1b[0m\x1b[2J")
             if cols < 20 or rows < 6:
-                out.write(b"\x1b[HMaak het venster groter")
+                out.write(b"\x1b[HMake the window bigger")
                 out.flush(); time.sleep(0.2); continue
 
             gloei_basis = st["gloei"]
@@ -584,8 +589,8 @@ def main():
             # Statusregel: handig om te zien of het aan de camera of aan de detectie ligt
             treffers = sum(cam.treffers) / len(cam.treffers) * 100 if cam.treffers else 0
             kl = "\x1b[38;2;200;40;40m" if gezien else "\x1b[38;2;90;70;70m"
-            status = (f"{kl}{'● gezicht' if gezien else '○ zoeken...'}\x1b[38;2;90;70;70m"
-                      f"   camera {cam.fps():4.1f} fps   herkend {treffers:3.0f}%"
+            status = (f"{kl}{'● face' if gezien else '○ searching...'}\x1b[38;2;90;70;70m"
+                      f"   camera {cam.fps():4.1f} fps   detected {treffers:3.0f}%"
                       f"   {'YuNet' if cam.yunet is not None else 'Haar'}")
             tekst += f"\x1b[{rows + 1};1H\x1b[0m\x1b[2K{status}\x1b[0m"
             # \x1b[?2026h/l = "synchronized update": terminal toont het frame pas als het compleet is

@@ -1,11 +1,14 @@
 # 👁️ Following Eyes
 
-Twee enge, gloeiende ogen in je terminal die je via de webcam volgen.
-Bloeddoorlopen, met spleetpupillen en bloedtranen. Kom je te dichtbij, dan gaan ze wijd open en begint het licht te flikkeren.
+Two creepy, glowing eyes in your terminal that follow you through your webcam.
+Bloodshot, with slit pupils and tears of blood. Get too close and they open wide while the lights start to flicker.
+Got more than one monitor? The other screens go black and eyes start appearing in the dark.
 
-Alles wordt live berekend met NumPy en getekend met kleur-tekens (`▀`) in de terminal. Er worden geen afbeeldingen ingeladen.
+Everything is calculated live with NumPy and drawn with colored characters (`▀`) in the terminal. No images are loaded.
 
-## Installeren
+> The webcam image is only used to find your face. Nothing is recorded, saved or sent anywhere.
+
+## Install
 
 ```
 python -m venv .venv
@@ -13,47 +16,48 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Starten
+## Run
 
-Dubbelklik op **`start.bat`**: dat opent Windows Terminal op volledig scherm.
+Double-click **`start.bat`**: it opens Windows Terminal in fullscreen.
 
-Of in de terminal:
+Or in a terminal:
 
 ```
-python ogen.py          # rode ogen
-python ogen.py geel     # of: rood, geel, wit
+python ogen.py          # red eyes
+python ogen.py yellow   # or: red, yellow, white
 ```
 
-Stoppen met `Ctrl+C`. Meer detail: zoom uit met `Ctrl` + `-`.
+Stop with `Ctrl+C` or `Esc`. More detail: zoom out with `Ctrl` + `-`.
 
-## Hoe het werkt
+## How it works
 
-1. **Webcam:** OpenCV leest de camera in een aparte thread.
-2. **Gezicht zoeken:** [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet), een klein neuraal netwerk, vindt je gezicht (map `model/`).
-3. **Kijkrichting:** het midden van je gezicht wordt een getal tussen -1 en 1.
-4. **Tekenen:** voor elke pixel worden huid, oogleden, oogwit, iris en pupil berekend met wiskunde.
-5. **Terminal:** elk teken `▀` is 2 pixels (voorgrond- en achtergrondkleur). Alleen wat verandert wordt opnieuw geschreven.
+1. **Webcam:** OpenCV reads the camera in a separate thread.
+2. **Finding your face:** [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet), a small neural network, finds your face (folder `model/`).
+3. **Gaze direction:** the center of your face becomes a number between -1 and 1.
+4. **Drawing:** skin, eyelids, sclera, iris and pupil are calculated with math for every pixel.
+5. **Terminal:** each `▀` character is 2 pixels (foreground and background color). Only what changes is redrawn.
 
-## Instellingen
+## Multiple monitors
 
-Bovenaan `ogen.py`:
+If you have more than one monitor, the other screens go black (`schermen.py` starts automatically).
+Glowing eyes appear in the dark and look toward the main screen, and the creepy messages show up there too.
+Walk away and there are eyes everywhere. Get too close and everything flashes red.
 
-| Instelling    | Betekenis                                          |
-|---------------|----------------------------------------------------|
-| `VASTHOUDEN`  | seconden dat de ogen blijven kijken waar je was    |
-| `VERSTERKING` | hoe ver de ogen draaien                            |
-| `DICHTBIJ`    | vanaf welke gezichtsgrootte je "te dichtbij" bent  |
+- Close: `Esc` on a black screen, or stop `ogen.py`.
+- Turn off: set `ANDERE_SCHERMEN = False` at the top of `ogen.py`.
 
-## Problemen
+## Settings
 
-- **"De webcam geeft geen beeld"**: draait `ogen.py` nog in een ander venster, of gebruikt een ander programma de camera?
-- **`cv2` heeft geen `CascadeClassifier`**: je gebruikt OpenCV 5. Activeer de `.venv` of doe `pip install "opencv-python<5"`.
+At the top of `ogen.py`:
 
-## Meerdere schermen
+| Setting           | Meaning                                              |
+|-------------------|------------------------------------------------------|
+| `VASTHOUDEN`      | seconds the eyes keep looking where you last were    |
+| `VERSTERKING`     | how far the eyes turn                                |
+| `DICHTBIJ`        | face size at which you are "too close"               |
+| `ANDERE_SCHERMEN` | black out the other monitors                         |
 
-Heb je meer dan één scherm, dan worden de andere schermen zwart (`schermen.py` start vanzelf).
-In het donker duiken gloeiende ogen op die naar het hoofdscherm kijken, en ook daar verschijnen de enge teksten.
-Ga je weg, dan zijn er overal ogen. Kom je te dichtbij, dan flitst alles rood.
+## Troubleshooting
 
-- Sluiten: `Esc` op een zwart scherm, of stop `ogen.py`.
-- Uitzetten: zet `ANDERE_SCHERMEN = False` bovenaan `ogen.py`.
+- **"The webcam is not giving any image"**: is the program still running in another window, or is another app using the camera?
+- **`cv2` has no `CascadeClassifier`**: you are using OpenCV 5. Activate the `.venv` or run `pip install "opencv-python<5"`.
